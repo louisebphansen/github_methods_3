@@ -167,11 +167,41 @@ The general linear model: $Y = X \beta + \epsilon$:
 Do a linear regression, expressing fuel usage as a function of weight using the function __lm__  
 ```{r, eval=FALSE}
 data(mtcars)
-model <- lm(formula=..., data=...)
+model <- lm(mpg ~ wt, data=mtcars)
+summary(model)
 ```
 1. extract $\hat{\beta}$, $Y$, $\hat{Y}$, $X$ and $\epsilon$ from __model__ (hint: have a look at the function __model.matrix__)  
+
+```{r}
+beta_hat <- model$coefficients
+Y_hat <- beta_hat[1] + mtcars$wt*beta_hat[2]
+Y <- mtcars$mpg
+X <- mtcars$wt
+error <- model$residuals
+
+```
+
+
     i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
+    
+```{r}
+plot(X, Y)
+abline(a = beta_hat[1], b = beta_hat[2], col = "blue")
+arrows(x0=X, y0 = Y, y1 = Y_hat, length = 0, code = 2, angle = 0)
+```
+- The blue line shows predicted values of Y (Y-hat) whereas the dots shows the observed values of Y. The lines are the error
+
+
 2. estimate $\beta$ for a quadratic model ($y = {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) using ordinary least squares _without_ using __lm__; $\hat{\beta} = {({X}^{T} X)}^{-1} {X}^{T} Y$ (hint: add a third column to $X$ from step 1)
+
+```{r}
+n <- 32
+const <- rep(1,n)
+design_matrix <- cbind(const, X)
+
+```
+
+
 3. compare your acquired $\hat{\beta}$ with the output of the corresponding quadratic model created using __lm__ (hint: use the function __I__, see details under help and the sub-section formula operators here: https://www.datacamp.com/community/tutorials/r-formula-tutorial)  
     i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))  
 
