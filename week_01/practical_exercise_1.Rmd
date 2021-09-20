@@ -3,8 +3,8 @@ title: "practical_exercise_1, Methods 3, 2021, autumn semester"
 author: 'Louise Brix Pilegaard Hansen'
 date: '20/9/2021'
 output:
-  word_document: default
   html_document: default
+  word_document: default
   pdf_document: default
 ---
 
@@ -17,7 +17,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 setwd("~/Desktop/github_methods_3/week_01")
-
 pacman::p_load("tidyverse")
 ```
 
@@ -80,7 +79,7 @@ error <- model$residuals
 ```
 
 
-    i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
+  i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
     
 ```{r}
 plot(X, Y)
@@ -88,17 +87,21 @@ abline(a = beta_hat[1], b = beta_hat[2], col = "blue")
 arrows(x0=X, y0 = Y, y1 = Y_hat, length = 0, code = 2, angle = 0)
 ```
 
-- The blue line shows predicted values of Y (Y-hat) whereas the dots shows the observed values of Y. The lines are the error
+**- The blue line shows predicted values of Y (Y-hat) whereas the dots shows the observed values of Y. The lines are the error**
 
 
 2. estimate $\beta$ for a quadratic model ($y = {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) using ordinary least squares _without_ using __lm__; $\hat{\beta} = {({X}^{T} X)}^{-1} {X}^{T} Y$ (hint: add a third column to $X$ from step 1)
 
 ```{r}
+#creating a design matrix, where the first column contains 1's, the second contains the wt variable from mtcars, and the third columns is the wt-variable squared
+
 n <- 32
 const <- rep(1,n)
 design_matrix <- cbind(const, mtcars$wt, (mtcars$wt)^2)
 
+#using the OLS equation to calculate our beta values
 beta_ols <- solve(t(design_matrix)%*%design_matrix)%*%t(design_matrix)%*%Y
+beta_ols
 ```
 
 
@@ -106,16 +109,17 @@ beta_ols <- solve(t(design_matrix)%*%design_matrix)%*%t(design_matrix)%*%Y
 
 ```{r}
 design_matrix <- cbind(design_matrix, mtcars$mpg)
+colnames(design_matrix) <- c("const", "wt", "wt_sqr", "mpg")
 
 design_matrix <- data.frame(design_matrix)
 
-lm_model <- lm(V4 ~ V2 + V3, data = design_matrix)
+lm_model <- lm(mpg ~ wt + wt_sqr, data = design_matrix)
 summary(lm_model)
 ```
 
-- the values are the same for the manual OLS estimator and the lm function
+**- the values are the same for the manual OLS estimator and the lm function**
 
-    i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))  
+  i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))  
 
 
 ```{r}
@@ -135,14 +139,13 @@ abline(a = 0, b = 1, col = 'darkgreen')
 ```
 
 
-- We have plotted a line with slope 1 and intercept 1 to show the difference between the model predictions and the actual y-values. If the two values were the same, they would all be on the green line. 
+**I have plotted a line with slope 1 and intercept 1 to show the difference between the model predictions and the actual y-values. If the two values were the same, they would all be on the green line. **
 
 ## Exercise 2
 Compare the plotted quadratic fit to the linear fit  
 
 1. which seems better?  
-- the quadratic plot seems to fit the data a bit better that the linear fit. The errors are distributed more evenly across the entire model, whereas for the linear model, some of the errors are more extreme than others.
-
+**- the quadratic plot seems to fit the data a bit better that the linear fit. The errors are distributed more evenly across the entire model, whereas for the linear model, some of the errors are more extreme than others.**
 
 2. calculate the sum of squared errors, (show the calculation based on $\epsilon$). Which fit has the lower sum?  
 
@@ -153,25 +156,25 @@ sum((Y - Y_hat)^2)
 # quadratic fit
 sum((Y - yhat)^2)
 ```
-- The quadratic fit has the lower sum of squared errors
+**- The quadratic fit has the lower sum of squared errors**
 
 3. now make a cubic fit ($y = {\beta}_{3} x^3 + {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) and compare it to the quadratic fit 
 
 ```{r}
 cub_df <- cbind(design_matrix[,1:3], (mtcars$wt)^3)
-cub_df
-
+colnames(cub_df) <- c("const", "wt", "wt_sqr", "wt_cub")
 cub_df <- cbind(cub_df, mtcars$mpg)
+colnames(cub_df) <- c("const", "wt", "wt_sqr", "wt_cub", "mpg")
 
 cub_df <- data.frame(cub_df)
 
-cubic_model <- lm(V5 ~ V2 + V3 + V4, data = cub_df)
+cubic_model <- lm(mpg ~ wt + wt_sqr + wt_cub, data = cub_df)
 summary(cubic_model)
 
 cubic_betahat <- cubic_model$coefficients
 ```
 
-    i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot)  
+  i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot)  
 
 ```{r}
 both_plot <- ggplot(mtcars, aes(x = wt, y = mpg))+
@@ -181,12 +184,14 @@ both_plot <- ggplot(mtcars, aes(x = wt, y = mpg))+
 both_plot
 ```
 
-- Blue line shows quadratic fit, green line shows cubic.
+**- Blue line shows quadratic fit, green line shows cubic.**
 
 
   ii. compare the sum of squared errors 
 ```{r}
 cub_df <- as.matrix(cub_df)
+
+#calculating the y-hats for the cubic model
 cubic_yhat <- cub_df[,1:4]%*%cubic_betahat
 
 #comparing the quadratic fit and the cubic fit
@@ -197,21 +202,21 @@ sum((Y - yhat)^2)
 # cubic fit
 sum((Y - cubic_yhat)^2)
 ```
-There is not very big difference - the cubic fit has a slightly smaller sum of squared errors.
+**There is not very big difference - the cubic fit has a slightly smaller sum of squared errors.**
 
 
  iii. what's the estimated value of the "cubic" (${\beta}_3$) parameter? Comment on this!  
 ```{r}
 cubic_betahat[4]
 ```
- - The estimated value of the "cubic" parameter is 0.0459, meaning that it is very small. It doesn't add much to our model.
+ **- The estimated value of the "cubic" parameter is 0.0459, which is quite small. It doesn't add much to our model.**
 
 4. bonus question: which summary statistic is the fitted value (_Intercept_ or ${\beta}_0$ in $y = {\beta}_0$) below identical to?
 ```{r, echo=FALSE}
 lm(mpg ~ 1, data=mtcars)
 mean(mtcars$mpg)
 ```
-It's identical to the mean, since making a regression with only an intercept is the same as taking the mean of the dependent variable. 
+**It's identical to the mean, since making a regression with only an intercept is the same as taking the mean of the dependent variable, as the slope is 0. **
 
 ## Exercise 3
 Doing a logistic regression - estimating the probability that a car has automatic transmission (0) or manual transmission (1) based on its weight
@@ -234,12 +239,15 @@ inv.logit <- function(x) exp(x) / (1 + exp(x))
 ```{r}
 yhat_logistic <- inv.logit(predict(logistic.model))
 logistic_df <- data.frame(cbind(mtcars$am, mtcars$wt, yhat_logistic))
+colnames(logistic_df) <- c("am", "wt", "yhat_logistic")
 
-ggplot(logistic_df, aes(x=V2, y=yhat_logistic))+ 
-  geom_point()
+ggplot(logistic_df, aes(x=wt, y=yhat_logistic))+ 
+  geom_point()+
+  xlab("wt")+
+  ylab("P(Y = 1)")
 ```
 
-    i. what is the relation between the __linear.predictors__ and the __fitted_values__ of the __logistic.model__ object?
+  i. what is the relation between the __linear.predictors__ and the __fitted_values__ of the __logistic.model__ object?
 
 The relationship between the linear predictors and the fitted values are not linear. This is why we can't interpret the model summary the same way as for a linear regression. This also means that the difference in y for each increment of x is **not** constant, as it is for a linear regression. This means that the estimates are hard to interpret. 
 
@@ -250,7 +258,7 @@ The fitted values predicted by our model are also hard to interpret on their own
 2. plot the logistic function, you've estimated based on your $\hat{\beta}$, (not just the fitted values). Use an _xlim_ of (0, 7)
 
 ```{r}
-ggplot(logistic_df, aes(x=V2, y=yhat_logistic))+ 
+ggplot(logistic_df, aes(x=wt, y=yhat_logistic))+ 
   geom_point(color="green")+
   stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial), color="green")+
   xlim(c(0,7))+
@@ -258,22 +266,22 @@ ggplot(logistic_df, aes(x=V2, y=yhat_logistic))+
   ylab("P(Y = 1)")
 ```
 
-    i. what's the interpretation of the estimated $\hat{\beta}_0$ (the _Intercept_)
+  i. what's the interpretation of the estimated $\hat{\beta}_0$ (the _Intercept_)
 ```{r}
 logistic.model$coefficients[1]
 
 inv.logit(logistic.model$coefficients[1])
 ```
-The intercept is 12.04, which is not easily interpretable, since it's on the log-scale. By using the inv.logit function, the numbers are converted into probabilities, which tell us that there is a 99.99% probability that a car has manual transmission if the weight is 0 (which is just a hypothetical scenario, since a car can't have weight 0). 
+**The intercept is 12.04, which is not easily interpretable, since it's on the log-scale. By using the inv.logit function, the numbers are converted into probabilities, which tell us that there is a 99.99% probability that a car has manual transmission if the weight is 0 (which is just a hypothetical scenario, since a car can't have weight 0). **
 
-    ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
+  ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
 
 ```{r}
 inv.logit(logistic.model$coefficients[1] + logistic.model$coefficients[2]*3.845)
 ```
-- There is a 3,1% probability that the Pontiac Firebird has automatic transmission given its weight
+**- There is a 3,1% probability that the Pontiac Firebird has automatic transmission given its weight**
 
-    iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following "quantizer" function:
+  iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following "quantizer" function:
     
 \begin{equation}
   transmission_{guess}=
@@ -291,21 +299,16 @@ pacman::p_load("ggrepel")
 # creating a new column where the the predicted probabilites above 0.5 get label "1" and below get 0
 logistic_df$predicted <- ifelse(yhat_logistic>0.5,1,0)
 
-mtcars_plot <- ggplot(logistic_df, aes(x = V2, y = V1))+
+#plotting the logistic funtion and highlighting those were we guessed wrongly
+mtcars_plot <- ggplot(logistic_df, aes(x = wt, y = am))+
   geom_point()+
-  geom_text(aes(label=ifelse(V1 != predicted, names, '')),hjust=0,vjust=0)+
-  geom_label_repel(aes(label = names),
-                  box.padding   = 0.35, 
-                  point.padding = 0.5,
-                  segment.color = 'grey50') +
-  theme_classic()
+  stat_smooth(method="glm", se=FALSE, method.args = list(family=binomial), color="green")+
+  geom_label_repel(aes(label=ifelse(am != predicted, names, '')), hjust=0,vjust=0)+
+  xlim(c(0,7))+
+  theme_classic()+
+  xlab("wt")+
+  ylab("Y")
 mtcars_plot
-
-#this is how far as i got.... i couldn't get it to filter out the wrong guesses in the plot..
-
-nrow(filter(logistic_df,logistic_df$V1 != logistic_df$predicted))
-
-#but we can see that the prediction is wrong three times.
 ```
 
 3. plot quadratic fit alongside linear fit 
@@ -318,7 +321,7 @@ summary(quadr_fit)
 yhat_quadr <- inv.logit(predict(quadr_fit))
 logistic_df <- data.frame(cbind(logistic_df, yhat_quadr))
 
-ggplot(logistic_df, aes(x=V2, y=yhat_logistic))+ 
+ggplot(logistic_df, aes(x=wt, y=yhat_logistic))+ 
   geom_point(color = "blue")+
   geom_point(y=yhat_quadr, color = "red")+
   geom_jitter()+
@@ -326,10 +329,10 @@ ggplot(logistic_df, aes(x=V2, y=yhat_logistic))+
   ylab("P(Y = 1)")
 ```
 
-    i. judging visually, does adding a quadratic term make a difference?
-- Not a lot - the predicted values are almost the same
+  i. judging visually, does adding a quadratic term make a difference?
+**- Not a lot - the predicted probabilites are almost the same**
 
-    ii. check the details in the help of the AIC function - which of the models provide the better fit according to the AIC values and the residual deviance respectively?
+  ii. check the details in the help of the AIC function - which of the models provide the better fit according to the AIC values and the residual deviance respectively?
 
 ```{r}
 summary(logistic.model)
@@ -341,8 +344,8 @@ summary(quadr_fit)
 AIC(logistic.model, quadr_fit)
 ```
 
-- the logistic model has the lower AIC, thus providing the better fit. The residual deviance is also a bit higher for the quadratic fit - but not a lot. This means that the quadratic term does not improve the model.
+**- the logistic model has the lower AIC, thus providing the better fit. The residual deviance is a bit lower that the quadratic fit - but not a lot. This means that the quadratic term does not improve the model very much.**
 
-    iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.
+  iii. in your own words, why might it be good to penalise a model like the quadratic model, we just fitted.
 
-It's a good idea to penalise models in order to avoid overfitting. If a model is overfitted, it's hard to generalize it, and thus it will perform badly on new data, it hasn't seen before (because it has been to 'specialized' on the original data). Models that get too complex are penalized more than simpler models, in order to take the risk of overfitting into account. 
+**It's a good idea to penalise models in order to avoid overfitting. If a model is overfitted, it's hard to generalize it, and thus it will perform badly on new data, it hasn't seen before (because it has been to 'specialized' on the original data). Models that get too complex are penalized more than simpler models, in order to take the risk of overfitting into account. **
