@@ -1,0 +1,463 @@
+---
+title: "practical_exercise_3, Methods 3, 2021, autumn semester"
+author: 'Louise Brix Pilegaard Hansen'
+date: "29/9/2021"
+output: html_document
+---
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd('~/Desktop/github_methods_3/week_03')
+pacman::p_load("tidyverse", "gridExtra", "lme4", "dfoptim")
+```
+
+# Exercises and objectives
+The objectives of the exercises of this assignment are:  
+1) Download and organise the data and model and plot staircase responses based on fits of logistic functions  
+2) Fit multilevel models for response times  
+3) Fit multilevel models for count data  
+
+REMEMBER: In your report, make sure to include code that can reproduce the answers requested in the exercises below (__MAKE A KNITTED VERSION__)  
+REMEMBER: This assignment will be part of your final portfolio
+
+## Exercise 1
+
+Go to https://osf.io/ecxsj/files/ and download the files associated with Experiment 2 (there should be 29).  
+The data is associated with Experiment 2 of the article at the following DOI https://doi.org/10.1016/j.concog.2019.03.007  
+
+1) Put the data from all subjects into a single data frame
+```{r}
+# Making a data frame with the data from experiment 2
+files <- list.files(path = "experiment_2",
+                    pattern = ".csv",
+                    full.names = T)
+
+df <- data.frame() # Creating empty data frame
+
+for (i in 1:length(files)){
+  new_dat <- read.table(files[i], sep = ",", header = TRUE, dec = ',' )
+  df <- rbind(new_dat, df)
+} # Going through each of the files on the list, reading them and them adding them to the data frame
+```
+
+2) Describe the data and construct extra variables from the existing variables  
+    i. add a variable to the data frame and call it _correct_ (have it be a _logical_ variable). Assign a 1 to each row where the subject indicated the correct answer and a 0 to each row where the subject indicated the incorrect answer (__Hint:__ the variable _obj.resp_ indicates whether the subject answered "even", _e_ or "odd", _o_, and the variable _target_type_ indicates what was actually presented.
+  
+```{r}
+#replacing the "even" with e's and "odd" with o's to create the "correct" column
+df$target.type <- replace(df$target.type, df$target.type == "even", "e")
+df$target.type <- replace(df$target.type, df$target.type == "odd", "o")
+df$correct <- ifelse(df$target.type == df$obj.resp, 1, 0)
+```
+    
+  ii. describe what the following variables in the data frame contain, 
+
+_trial.type_ : describing whether the observation comes from the staircase trials (test trials) or the actual experiment. Should be a factor
+
+_pas_: Subjective experience of how certain the participant was of their response. Rated from 1-4. Should be numeric
+
+_trial_: The number of trials for each participant (both for staircase and experiment). Should be numeric
+
+_target.contrast_: The constrast of the target stimulus compared to the background. Should be numeric
+
+_cue_: what que the participant is viewing. Should be a factor
+
+_task_: the type of cue the participant is viewing (how many numbers the participant is seeing in the cue); is either singles (viewing two numbers), pairs (viewing four numbers) or quadruplets (viewing eight numbers). Should be a factor
+
+_target_type_ : whether they got an even number or odd number as a target number. Should be a factor
+
+_rt.subj_: how fast they were at responding to the subjective question (how certain they were of their response). Should be numeric
+
+_rt.obj_: how fast they were at responding to the objective question (whether the number was odd or even). Should be numeric
+
+_obj.resp_: what the participants answered to whether the number was odd or even. Should be a factor
+
+_subject_: participant number. Should be a factor. 
+
+_correct_: 1 if they got whether the number was odd or even correct, 0 if they did not. Should be a factor
+
+(That means you can ignore the rest of the variables in your description). For each of them, indicate and argue for what `class` they should be classified into, e.g. _factor_, _numeric_ etc.  
+
+```{r}
+df$trial.type <- as.factor(df$trial.type)
+df$target.contrast <- as.numeric(df$target.contrast)
+df$cue <- as.factor(df$cue)
+df$task <- as.factor(df$task)
+df$target.type <- as.factor(df$target.type)
+df$rt.obj <- as.numeric(df$rt.obj)
+df$rt.subj <- as.numeric(df$rt.subj)
+df$subject <- as.factor(df$subject)
+df$correct <- as.factor(df$correct)
+df$obj.resp <- as.factor(df$obj.resp)
+```
+
+  iii. for the staircasing part __only__, create a plot for each subject where you plot the estimated function (on the _target.contrast_ range from 0-1) based on the fitted values of a model (use `glm`) that models _correct_ as dependent on _target.contrast_. These plots will be our _no-pooling_ model. Comment on the fits - do we have enough data to plot the logistic functions?  
+  
+```{r warning=FALSE}
+#getting only the observations from the staircase part
+staircase <- df %>% 
+  filter(trial.type == 'staircase')
+
+# creating a function that can make a model for each participant and plot the fits
+nopoolfun <- function(i){
+  dat <- staircase[which(staircase$subject == i),] # taking each participant at a time
+  
+  model <- glm(correct ~ target.contrast, family = 'binomial', data = dat) # fitting the model to the data from one participant
+  
+  fitted <- model$fitted.values # getting the fitted values
+  plot_dat <- data.frame(cbind(fitted, 'target.contrast' = dat$target.contrast)) # creating a data frame with the variables in order to make a plot
+  
+  plot <- ggplot(plot_dat, aes(x = target.contrast, y = fitted))+ # plotting
+    geom_point(color = 'steelblue') + 
+    xlab('Target Contrast') +
+    ylab('Predicted') +
+    ylim(c(0,1))+
+    ggtitle(paste0('Participant ', as.character(i))) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10), axis.title=element_text(size = 8), axis.text=element_text(size=6))
+return(plot)
+}
+
+# applying the function to each participant - divided into two plots for nicer looks
+subjects <- c(1:16)
+plots <- lapply(subjects, FUN=nopoolfun)
+do.call(grid.arrange,  plots)
+
+subjects <- c(17:29)
+plots <- lapply(subjects, FUN=nopoolfun)
+do.call(grid.arrange,  plots)
+```
+
+
+We don't really have a lot of data - especially since most of the models don't seem to predict values under 0.7. This makes it a bit difficult to plot a logistic function.
+
+  
+  iv. on top of those plots, add the estimated functions (on the _target.contrast_ range from 0-1) for each subject based on partial pooling model (use `glmer` from the package `lme4`) where unique intercepts and slopes for _target.contrast_ are modelled for each _subject_  
+  
+```{r warning=FALSE}
+# creating a partial pooling model, where we have unique intercepts and slopes for target contrast for each subject
+model <- glmer(correct ~ target.contrast + (1 + target.contrast | subject), family = 'binomial', data = staircase) 
+
+# new function, which plots the estimated functions for each subject
+partialpoolfun <- function(i){
+  
+  #this is the same as the function in the chunk above
+  dat <- staircase[which(staircase$subject == i),] 
+  model1 <- glm(correct ~ target.contrast, family = 'binomial', data = dat)
+  fitted <- model1$fitted.values
+  plot_dat <- data.frame(cbind(fitted, 'target.contrast' = dat$target.contrast))
+  
+  newdf<- data.frame(cbind(seq(0, 1, by = 0.01),rep(i))) #     creating a data frame with several target.contrast values and a column with the subject number
+  colnames(newdf) <- c('target.contrast', 'subject')
+
+  newdf$predictmod <- predict(model, type = 'response', newdata = newdf) # predicting new values using the new data frame
+  
+  #making a plot for each participant again
+  plot <- ggplot(plot_dat, aes(x = target.contrast, y = fitted)) +
+    geom_point(color = 'steelblue') + 
+    geom_line(data = newdf, aes(x = target.contrast, y = predictmod)) + 
+    scale_colour_manual(values=c("#000066"))+
+    xlab('Target Contrast') +
+    ylab('Predicted') +
+    ylim(c(0,1))+
+    ggtitle(paste0('Participant ', as.character(i))) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10), axis.title=element_text(size = 8), axis.text=element_text(size=6))
+  
+  return(plot)
+}
+
+subjects <- c(1:16)
+plots <- lapply(subjects, FUN=partialpoolfun)
+do.call(grid.arrange,  plots)
+
+subjects <- c(17:29)
+plots <- lapply(subjects, FUN=partialpoolfun)
+do.call(grid.arrange,  plots)
+```
+  
+  v. in your own words, describe how the partial pooling model allows for a better fit for each subject  
+  
+Partial pooling allows for a better fit than the no pooling model (and also a complete pooling model). In a no pooling model, we are fitting a model for each subject. This does not allow us to generalize outside of the participants we already have; so the model cannot be used on a new participant. If one instead used a complete pooling model, an obvious pattern (that there are differences across subjects) would be overlooked, which would result in a bad fit - so this is not ideal either. Thus, the best way is the partial pooling model; by including unique intercepts and slopes for "target contrast" for each subject, we allow this to vary for each subject, thus taking individual differences into account. This gives us both a better fit than the complete pooling model, while also allowing us to generalize outside of our subject pool, which our no pooling model does not. 
+
+## Exercise 2
+
+Now we __only__ look at the _experiment_ trials (_trial.type_)  
+
+```{r}
+#filtering out the experiment trials
+experiment_df <- df %>% 
+  filter(trial.type == "experiment")
+
+#creating a new dataframe with only four subjects
+subjects_df <- experiment_df %>%
+  filter(subject == "3" | subject == "7" | subject == "17" | subject == "28")
+```
+
+
+1) Pick four subjects and plot their Quantile-Quantile (Q-Q) plots for the residuals of their objective response times (_rt.obj_) based on a model where only intercept is modelled  
+
+```{r message=FALSE}
+subjects_df$subject <- as.numeric(subjects_df$subject)
+
+#making a function that creates a model for each subject and plots the qqplot
+qqfun <- function(i){
+  intercept_df <- subjects_df %>% filter(subject == i)
+  interceptmodel <- lm(rt.obj ~ 1, data = intercept_df)
+  qqnorm(resid(interceptmodel), pch = 1, frame = FALSE)
+  qqline(resid(interceptmodel), col = "steelblue", lwd = 2)
+}
+
+#applying the function to our chosen subjects
+subjects <- c(3, 7, 17, 28)
+sapply(subjects, qqfun)
+```
+
+  i. comment on these    
+
+They all look quite right-skewed, but some more than others (especially the two last plots). So the residuals do not look very normally distributed 
+
+  ii. does a log-transformation of the response time data improve the Q-Q-plots?  
+  
+```{r message=FALSE}
+qqfun_log <- function(i){
+  intercept_df <- subjects_df %>% filter(subject == i)
+  interceptmodel <- lm(log(rt.obj) ~ 1, data = intercept_df)
+  qqnorm(resid(interceptmodel), pch = 1, frame = FALSE)
+  qqline(resid(interceptmodel), col = "steelblue", lwd = 2)
+}
+
+subjects <- c(3, 7, 17, 28)
+sapply(subjects, qqfun_log)
+```
+  The log-transform seemed to help for most of the plots. The first plot does not look too good however (perhaps a bit right-skewed). So, after log-transforming, the residuals overall look more normally distributed. 
+
+2) Now do a partial pooling model modelling objective response times as dependent on _task_? (set `REML=FALSE` in your `lmer`-specification) 
+  i. which would you include among your random effects and why? (support your choices with relevant measures, taking into account variance explained and number of parameters going into the modelling) 
+  
+```{r warning=FALSE}
+partpoolm1 <- lmer(log(rt.obj) ~ task + (1|subject), data = experiment_df, REML = FALSE)
+partpoolm2 <- lmer(log(rt.obj) ~ task + (1 + task|subject), data = experiment_df, REML = FALSE)
+partpoolm3 <- lmer(log(rt.obj) ~ task + (1|trial), data = experiment_df, REML = FALSE)
+partpoolm4 <- lmer(log(rt.obj) ~ task + (1|trial) + (1|subject), data = experiment_df, REML = FALSE)
+
+model_names <- c("partpoolm1", "partpoolm2", "partpoolm3","partpoolm4")
+
+#finding residual standard deviation
+residual_sd <- c(sigma(partpoolm1), sigma(partpoolm2), sigma(partpoolm3), sigma(partpoolm4))
+
+#finding AIC
+AIC <- c(AIC(partpoolm1), AIC(partpoolm2), AIC(partpoolm3), AIC(partpoolm4))
+
+#combining it all in a tibble
+as.tibble(cbind(model_names, residual_sd, AIC))
+```
+
+The fourth model, the model with both trial and subject as random intercept, has the lowest residual standard deviation and the lowest AIC value. 
+
+Comparing model 1 and model 3, where we only have either subject or trial as random intercept, we see that subject explains more variance than trial do, arguably making it the most important random intercept to include. However, including both of them seem to create the best model. 
+
+  ii. explain in your own words what your chosen models says about response times between the different tasks  
+
+```{r}
+summary(partpoolm4)
+```
+
+
+Our model tells us that there is a shorter reaction time for both the quadruplet task and the singles task than for the pairs task. By adding random intercepts, we take into account that there may be varying intercepts for trial and subject. This means that each subject are allowed their own baseline reaction time. Furthermore, it means that for each trial, we also allow a different baseline reaction time, based on what trial the participants are in. 
+
+
+3) Now add _pas_ and its interaction with _task_ to the fixed effects  
+
+```{r}
+pas_model<- lm(log(rt.obj) ~ task*pas, data = experiment_df)
+```
+
+  i. how many types of group intercepts (random effects) can you add without ending up with convergence issues or singular fits?  
+  
+```{r}
+pas_mixed_model1<- lmer(log(rt.obj) ~ task*pas + (1|subject), data = experiment_df, REML = FALSE)
+pas_mixed_model2<- lmer(log(rt.obj) ~ task*pas + (1|subject), data = experiment_df, REML = FALSE)
+pas_mixed_model3<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial), data = experiment_df, REML = FALSE)
+pas_mixed_model4<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial) + (1|cue), data = experiment_df, REML = FALSE)
+pas_mixed_model5<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial) + (1|cue), data = experiment_df, REML = FALSE)
+pas_mixed_model6<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial) + (1|cue) + (1|target.contrast)  , data = experiment_df, REML = FALSE)
+pas_mixed_model7<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial) + (1|cue) + (1|target.contrast) + (1|target.type) , data = experiment_df, REML = FALSE)
+```
+
+The two last models result in errors; pas_mixed_model6 (with 4 random intercept) is a singular fit and pas_mixed_model7 (5 intercepts) resulted in a convergence error
+  
+  ii. create a model by adding random intercepts (without modelling slopes) that results in a singular fit - then use `print(VarCorr(<your.model>), comp='Variance')` to inspect the variance vector - explain why the fit is singular (Hint: read the first paragraph under details in the help for `isSingular`)
+  
+```{r}
+#the model that results in a singular fit
+pas_mixed_model6<- lmer(log(rt.obj) ~ task*pas + (1|subject) + (1|trial) + (1|cue) + (1|target.contrast), data = experiment_df, REML = FALSE)
+
+print(VarCorr(pas_mixed_model6), comp='Variance')
+```
+  
+The fit is singular because the random-effects variances are close to zero.
+
+  iii. in your own words - how could you explain why your model would result in a singular fit?  
+
+Our model results in a singular fit because it has too many random intercepts, and the variances of these random effects are close to zero. This means that adding all these variables do not explain a lot of variance in the data. It can also occur when the estimates of variable's correlations are almost -1 or 1. We don't want to add more variables that does not explain variance since this results in an overfitted model that cannot be generalized. 
+
+    
+## Exercise 3
+
+1) Initialise a new data frame, `data.count`. _count_ should indicate the number of times they categorized their experience as _pas_ 1-4 for each _task_. I.e. the data frame would have for subject 1: for task:singles, pas1 was used # times, pas2 was used # times, pas3 was used # times and pas4 was used # times. You would then do the same for task:pairs and task:quadruplet  
+
+```{r}
+# making a new dataframe by grouping by subject, pas and task
+data.count <- experiment_df %>% group_by(subject, pas, task) %>% summarise(count=n())
+
+#making pas into a factor (subject and task are already factors)
+data.count$pas <- as.factor(data.count$pas)
+```        
+
+2) Now fit a multilevel model that models a unique "slope" for _pas_ for each _subject_ with the interaction between _pas_ and _task_ and their main effects being modelled  
+
+```{r}
+poisson_model <- glmer(count ~ pas*task + (1 + pas|subject), family = "poisson", data = data.count, glmerControl(optimizer="bobyqa"))
+summary(poisson_model)
+```
+
+  i. which family should be used?  
+
+The poisson family, since we are modelling count data, which are distributed as a poisson distribution. 
+
+  ii. why is a slope for _pas_ not really being modelled?  
+
+If you look at pas as a fixed effect on its own, it does not make much sense; it does not make sense to use the ratings of pas to predict count. We are interested in the interaction between pas and task, since we can only use pas to say something in relation to task.  
+
+  iii. if you get a convergence error, try another algorithm (the default is the _Nelder_Mead_) - try (_bobyqa_) for which the `dfoptim` package is needed. In `glmer`, you can add the following for the `control` argument: `glmerControl(optimizer="bobyqa")` (if you are interested, also have a look at the function `allFit`)
+
+  iv. when you have a converging fit - fit a model with only the main effects of _pas_ and _task_. Compare this with the model that also includes the interaction 
+
+
+```{r}
+poisson_model_me <- glmer(count ~ pas + task + (1 + pas|subject), family = "poisson", data = data.count, glmerControl(optimizer="bobyqa"))
+
+#finding AIC
+AIC(poisson_model, poisson_model_me)
+```
+
+By comparing the two models, we see that the model with the interaction has the lowest AIC value.
+
+  v. indicate which of the two models, you would choose and why  
+  
+I would choose the interaction model, since it theoretically makes more sense to include the interaction instead of only the main effect since, as mentioned before, it does not make sense to include pas without including its interaction with task. It is more interesting to look at how count increases/decreases based on the interaction between pas and task. Furthermore, it has the lowest AIC value.
+  
+  vi. based on your chosen model - write a short report on what this says about the distribution of ratings as dependent on _pas_ and _task_  
+  
+```{r}
+summary(poisson_model)
+```
+
+```{r}
+#extractring some of the coefficients
+model_text <- c("Intercept", "taskquadruplet", "tasksingles", "pas2:taskquadruplet", "pas3:taskquadruplet", "pas4:taskquadruplet", "pas2:tasksingles", "pas3:tasksingles", "pas4:tasksingles")
+betas <- poisson_model@beta[c(1, 5, 6, 7, 8, 9, 10, 11, 12)]
+betas_exp <- exp(poisson_model@beta[c(1, 5, 6, 7, 8, 9, 10, 11, 12)])
+
+as.tibble(cbind(model_text, betas, betas_exp))
+```
+
+
+Looking at the betas_exp column, we see the exponentials of the betas, which makes it easier to interpret the numbers. These can be interpreted as the percentage increase in the count of "pas". So, for example, the "taskquadruplet" beta_exp coefficient of 1.06 means that the count of pas1 in "taskquadruplet" increases with 6% compared to the baseline, which is the average count of pas1 in the "pairs" task. This makes intuitive sense - when the task becomes more difficult, the amount of pas1 rating, the most 'uncertain' rating, goes up. The count of pas1 in the "singles" task decreases with approximately 21% compared to the baseline, as seen by the exponential of the "tasksingles" coefficient of 0.79 - which again makes sense, since the task is easier, thus making the participants more certain of their response (and hence having a lower count of pas1, the most uncertain rating).
+
+From the interaction effects, we see that the "harder" tasks decreases the count; the betas_exp values of "pas2:taskquadruplet", "pas3:taskquadruplet" and "pas4:taskquadruplet" all correspond to a percentage decrease in the amount of counts. This means that for the harder task, quadruplet, people were less certain of their responses, as seen by the decrease in counts of pas2-4 responses. Furthermore, we see that for the interaction effects of pas and the easier task, "singles", the count increases for pas 2,3 and 4, meaning that people were more certain of their responses in the easy task compared to the baseline, the pairs task. 
+
+  
+  vii. include a plot that shows the estimated amount of ratings for four subjects of your choosing
+
+```{r}
+subjects_plot_df <- data.count %>%
+  filter(subject == "3" | subject == "7" | subject == "17" | subject == "28")
+
+subjects_plot_df$predicted <- predict(poisson_model, newdata = subjects_plot_df)
+
+ggplot(subjects_plot_df, aes(x = pas, y = exp(predicted), fill = pas)) + 
+  geom_bar(stat = 'identity') + 
+  facet_wrap(~ subject)+
+  theme_light()
+```
+
+3) Finally, fit a multilevel model that models _correct_ as dependent on _task_ with a unique intercept for each _subject_  
+
+```{r}
+another_model <- glmer(correct ~ task + (1|subject), family = "binomial", data = experiment_df)
+summary(another_model)
+```
+
+  i. does _task_ explain performance?  
+
+It seems as if task can explain performance to some degree - we have one significant predictor, tasksingles, and one nonsignificant, taskquadruplet. 
+
+The values furthermore make sense intuitively; we see that "taskquadruplet" has a negative slope, meaning the probability of getting "correct" is less likely for the quadruplet task compared to the baseline, the pairs task. The slope for "tasksingles" is positive, meaning that the probability of getting correct is higher for the singles task compared to the pairs task. 
+
+  
+  ii. add _pas_ as a main effect on top of _task_ - what are the consequences of that?  
+  
+```{r}
+experiment_df$pas <- as.factor(experiment_df$pas)
+another_pas_model <- glmer(correct ~ task + pas + (1|subject), family = "binomial", data = experiment_df)
+summary(another_pas_model)
+```
+
+When adding pas as a predictor, task is no longer significant; it seems as if pas explains whether the participants answered correctly better than task does - this makes sense, since you would expect that the participants' rating of certainty predicted whether they answered correctly.
+
+  iii. now fit a multilevel model that models _correct_ as dependent on _pas_ with a unique intercept for each _subject_
+  
+```{r}
+pasmodel_new <- glmer(correct ~ pas + (1|subject), family = "binomial", data = experiment_df)
+```
+
+  iv. finally, fit a model that models the interaction between _task_ and _pas_  and their main effects  
+  
+```{r}
+interaction_pas_model <- glmer(correct ~ task*pas + (1|subject), family = "binomial", data = experiment_df)
+```
+
+  
+  v. describe in your words which model is the best in explaining the variance in accuracy  
+```{r}
+#first comparing the models using the AIC function
+mymodels <- c("another_pas_model", "pasmodel_new", "interaction_pas_model")
+AIC_models <- c(AIC(another_pas_model), AIC(pasmodel_new), AIC(interaction_pas_model))
+as.tibble(cbind(mymodels, AIC_models))
+```
+
+```{r}
+#predicting new values for 'correct' and making confusion matrices for the three models in order to compare their performance
+correctm1 <- predict(another_pas_model, experiment_df, type='response')
+correctm1 <- ifelse(correctm1 > 0.5, 1, 0)
+tabm1 <- table(experiment_df$correct, correctm1)
+tabm1
+
+correctm2 <- predict(pasmodel_new, experiment_df, type='response')
+correctm2 <- ifelse(correctm2 > 0.5, 1, 0)
+tabm2 <- table(experiment_df$correct, correctm2)
+tabm2
+
+correctm3 <- predict(interaction_pas_model, experiment_df, type='response')
+correctm3 <- ifelse(correctm3 > 0.5, 1, 0)
+tabm3 <- table(experiment_df$correct, correctm3)
+tabm3
+```
+
+
+```{r}
+#calculating the accuracy score for each of the model's confusion matrix
+(823 + 8475)/(823+2398+832+8475)
+(823 + 8475)/(823+2398+832+8475)
+(718 + 8583)/(718+2503+724+8583)
+```
+
+First of all, the AIC value is lowest for "pasmodel_new", which is the model with only pas as a fixed effect and subject as a random intercept. When looking at the confusion matrices and the accuracy score (which is all correct divided by all observations), the third model, which models the interaction between "pas" and "task", performs best - but not by a lot, however. I would argue that it's either the model with only "pas" as a fixed effect (called "pasmodel_new") or the model with the interaction between "pas" and "task" (called interaction_pas_model) that explains the most variance, since these perform almost similarly when looking at the accuracy scores. "Task" as a fixed effect on its own does not seem to explain a lot of variance, as we see the model with both "task" and "pas" as fixed effects does not perform better than the model with only pas regarding the accuracy score, while actually performing worse when looking at the AIC values. Thus, there does not seem to be reason to include it, as including variables that do not explain a lot of variance could result in overfitting, hence not being able to generalize the model. However, I would argue that including it in the model with the interaction makes theoretical sense, since it seems plausible that task has some interaction with "pas" ratings, which then effects whether you are correct or not. 
