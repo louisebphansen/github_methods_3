@@ -62,7 +62,7 @@ REMEMBER: This assignment will be part of your final portfolio
   
 ```{r}
 #Making all the variables that are characters to factors
-politeness[sapply(politeness, is.character)] <- lapply(politeness[sapply(politeness, is.character)], 
+politeness[sapply(politeness, is.character)] <- lapply(politeness[sapply(politeness, is.character)],
                                        as.factor)
 ```
 
@@ -152,24 +152,20 @@ summary(lmer_gender_model_both)
 ```
 
   v. which of the models has the lowest residual standard deviation, also compare the Akaike Information Criterion `AIC`?
+  
 
 ```{r}
-#finding the residual standard deviation and combining into a tibble for better overview
+#finding the residual standard deviation and AIC, and combining into a tibble for better overview
 models <- c("gender_model", "lmer_gender_model_scenario", "lmer_gender_model_subject", "lmer_gender_model_both")
 
 sigmas <- c(sigma(gender_model), sigma(lmer_gender_model_scenario), sigma(lmer_gender_model_subject), sigma(lmer_gender_model_both))
 
-as_tibble(rbind(models, sigmas))
+AIC_values <- AIC(gender_model, lmer_gender_model_scenario, lmer_gender_model_subject, lmer_gender_model_both)
+
+as_tibble(cbind(models, sigmas, AIC_values))
 ```
 
-The model with both random intercepts for subject and scenario has the lowest residual standard deviation.
-
-```{r}
-#finding the AIC value
-AIC(gender_model, lmer_gender_model_scenario, lmer_gender_model_subject, lmer_gender_model_both)
-```
-
-Again, the model with both random intercepts for subject and scenario has the lowest AIC value. 
+The model with both random intercepts for subject and scenario has the lowest residual standard deviation and lowest AIC value.
 
   vi. which of the second-level effects explains the most variance?
 
@@ -197,27 +193,32 @@ summary(avg_model)
 ```
 
   iii. make Quantile-Quantile plots, comparing theoretical quantiles to the sample quantiles) using `qqnorm` and `qqline` for the new single-level model and compare it to the old single-level model (from 1).i). Which model's residuals ($\epsilon$) fulfil the assumptions of the General Linear Model better?)
-
+  
+  
 ```{r}
-qqnorm(resid(gender_model), main = "QQ plot for the residuals of the model of frequency predicted by gender")
+#this allows me to plot the two qq-plots next to each other
+par(mfrow = c(1,2))
+
+qqnorm(resid(gender_model), main = "QQplot,residuals of gender_model")
 qqline(resid(gender_model))
 
-qqnorm(resid(avg_model), main = "QQ plot for the residuals of the model of avg. frequency predicted by gender")
+qqnorm(resid(avg_model), main = "QQplot, residuals of avg_model")
 qqline(resid(avg_model))
 ```
 
 
-I would argue that the second model, shown in the second plot, fulfills the assumption of normality of the residuals of the general linear model better. This is because the errors look more systematically distributed in the first plot; it appears as though there is a small curve and pattern in the first model. Furthermore, it seems as though more of the errors are distributed above the line, whereas in the second plot, they are more evenly distributed both above and under.
+I would argue that the second model, shown in the second plot, fulfills the assumption of normality of the residuals of the general linear model better. This is because the errors look more systematically distributed in the first plot; the first plot seems to be a bit right-skewed. Furthermore, it seems as though more of the errors are distributed above the line, whereas in the second plot, they are more evenly distributed both above and under. However, there are naturally fewer observations in the second plot, as this contains averaged values. Since these values are averaged, the residuals naturally resembles a normal distribution more.
 
   iv. Also make a quantile-quantile plot for the residuals of the multilevel model with two intercepts. Does it look alright?
-
+  
+ 
 ```{r}
 qqnorm(resid(lmer_gender_model_both), main= "Quantile Quantile plot for the residuals of the multilevel model")
 qqline(resid(lmer_gender_model_both))
 ```
 
+It looks all right - there is not as much of a pattern as we saw in the first plot above. The errors are more evenly distributed above and under the line in this plot - but there are still some deviations from the line, which we can see to the far right of the plot. This shows that the residuals are still a bit right-skewed
 
-It looks all right - there is not as much of a pattern as we saw in the first plot above. The errors are more evenly distributed above and under the line in this plot - but there are still some deviations from the line, which we can see to the far right of the plot. 
 
 3) Plotting the two-intercepts model
     i. Create a plot for each subject, (similar to part 3 in Exercise 1), this time also indicating the fitted value for each of the subjects for each for the scenarios (hint use `fixef` to get the "grand effects" for each gender and `ranef` to get the subject- and scenario-specific effects)
@@ -238,7 +239,6 @@ ggplot(politeness_no_na, aes(x = scenario, y = f0mn))+
   ylab("Frequency in Hz")+
   ggtitle("Plot of observations for each subject with fitted values for each of the scenarios")
 ```
-
 
 The red dots show the fitted values for our model. The black dots show the two measured frequencies in each scenario. 
     
@@ -270,15 +270,17 @@ pacman::p_load("effects")
 plot(allEffects(interaction_model), multiline=TRUE, ci.style="bars")
 ```
 
-The interactions tells us something about how much the effect of attitude (polite/informal) changes when gender goes from female to male. The interaction means that women's frequency is influenced more by the effect of attitude than males' frequency, since we see the slope is positive, thus meaning that the slope for when you go from informal to polite is steeper for women than men. However, we see that the error bars are overlapping quite a lot, there could be some uncertainty about whether this is a real effect. 
+
+The slope for "attitudepol" is -17.19. This is the slope for women in the polite condition. This means that compared to the intercept, which is the average frequency for women in the informal condition, the pitch decreases with -17.19 Hz in the polite condition compared to the informal condition. If we look at the interaction coefficient, which is 5.54, we can add this to the slope of "attitudepol", to get the effect on pitch frequency in the polite condition for men. This gives us a slope of -11.648, which means that compared to the informal condition, politeness decreases the pitch frequency with -11.648 Hz for men. This is is less steep than for women, which we can interpret as women's frequency being more affected by politeness than men's. However, we see that the error bars are overlapping quite a lot, so there could be some uncertainty about whether this is interaction is a real effect. 
 
 2) Compare the three models (1. gender as a main effect; 2. gender and attitude as main effects; 3. gender and attitude as main effects and the interaction between them. For all three models model unique intercepts for _subject_ and _scenario_) using residual variance, residual standard deviation and AIC. 
+
 
 ```{r}
 model_names <- c("lmer_gender_model_both", "attitude_model", "interaction_model")
 
 #finding residual variance
-residual_variances <- c(var(resid(lmer_gender_model_both)), var(resid(attitude_model)), var(resid(interaction_model)))
+residual_variances <- c(sum((resid(lmer_gender_model_both)^2)), sum((resid(attitude_model)^2)), sum((resid(interaction_model)^2)))
 
 #finding residual standard deviation
 residual_sd <- c(sigma(lmer_gender_model_both), sigma(attitude_model), sigma(interaction_model))
@@ -290,7 +292,7 @@ AIC <- c(AIC(lmer_gender_model_both), AIC(attitude_model), AIC(interaction_model
 as.tibble(cbind(model_names, residual_variances, residual_sd, AIC))
 
 ```
-The first model, with only gender as a fixed effect and random intercepts for subject and scenario, has the highest value on all three parameters. The interaction model has the lowest residual variance and lowest AIC value. However, model with gender and attitude as fixed effects (as well as random intercepts for subject and scenario) has the lowest residual standard deviation. But overall, there is not that big of a difference between the two models with attitude as a fixed effect.
+The first model, with only gender as a fixed effect and random intercepts for subject and scenario, has the highest value on all three parameters. The interaction model has the lowest residual variance and lowest AIC value. However, model with gender and attitude as fixed effects (as well as random intercepts for subject and scenario) has the lowest residual standard deviation. But overall, there is not that big of a difference between the two models with attitude as a fixed effect. However, we choose the model with the lowest residual standard deviation; this is because residual standard deviation, sigma, takes the number of parameters of the model into account, and thus penalizes models with many parameters, which residual variance does not; this measure will always give the lowest value to the model with the most parameters, thus making it a biased measured for measuring variance explained. 
 
 3)  Choose the model that you think describe the data the best - and write a short report on the main findings based on this model. At least include the following:
 
